@@ -208,7 +208,9 @@ fn collect_internal_aliases(
 ) -> AliasMap {
     let mut aliases = AliasMap::new();
     for reference in references {
-        if !matches!(
+        let self_crate_alias = reference.kind == ImportKind::ExternCrate
+            && reference.segments == ["self"];
+        if !self_crate_alias && !matches!(
             reference.kind,
             ImportKind::Use | ImportKind::PubUse | ImportKind::Mod
         ) {
@@ -262,6 +264,12 @@ fn resolve_direct(
             if let Some(found) =
                 longest_prefix(index, &reference.module, &reference.segments[1..], 0)
             {
+                candidates.insert(found);
+            }
+        }
+        // Unlike a `self::` path, `extern crate self` names this target's crate root.
+        "self" if reference.kind == ImportKind::ExternCrate => {
+            if let Some(found) = longest_prefix(index, &reference.module, &[], 0) {
                 candidates.insert(found);
             }
         }
@@ -371,6 +379,10 @@ enum ResolutionOutcome {
     Ambiguous(Vec<InternalResolution>),
     Unresolved,
 }
+
+#[cfg(test)]
+#[path = "self_crate_alias_tests.rs"]
+mod self_crate_alias_tests;
 
 #[cfg(test)]
 mod tests {
