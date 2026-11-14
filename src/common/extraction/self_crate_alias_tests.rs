@@ -81,6 +81,56 @@ fn nested_self_crate_alias_and_its_declaration_resolve_crate_not_module() {
 }
 
 #[test]
+fn self_crate_aliases_respect_competing_library_and_binary_roots() {
+    let targets = [
+        ("lib", "src/lib.rs", "src/consumer.rs"),
+        ("bin", "src/main.rs", "src/bin_consumer.rs"),
+    ];
+    let mut index = BTreeMap::new();
+    let mut declarations = Vec::new();
+    for (target, root, consumer) in targets {
+        let mut root_module = module(&[]);
+        root_module.target = target.to_owned();
+        index.insert(root_module, root.to_owned());
+
+        let mut declaration = alias(&["consumer"], "local_crate");
+        declaration.module.target = target.to_owned();
+        declaration.source = consumer.to_owned();
+        index.insert(declaration.module.clone(), consumer.to_owned());
+        declarations.push(declaration);
+    }
+    let mut library_only = declarations[0].clone();
+    library_only.binding = Some("library_only".to_owned());
+    let mut aliases = collect_internal_aliases(&declarations, &index);
+    aliases.extend(collect_internal_aliases(&[library_only], &index));
+
+    for (declaration, (target, root, _)) in declarations.iter().zip(targets) {
+        let mut qualified = declaration.clone();
+        qualified.kind = ImportKind::PathReference;
+        qualified.binding = None;
+        qualified.segments = vec!["local_crate".to_owned(), "Item".to_owned()];
+        for reference in [declaration, &qualified] {
+            let ResolutionOutcome::Found(found) = resolve_reference(reference, &index, &aliases)
+            else {
+                panic!(
+                    "expected {} to resolve in target {target}",
+                    reference.rendered_path(),
+                );
+            };
+            assert_eq!(found.source, root, "wrong root for target {target}");
+        }
+
+        qualified.segments[0] = "library_only".to_owned();
+        let outcome = resolve_reference(&qualified, &index, &aliases);
+        if target == "lib" {
+            assert!(matches!(outcome, ResolutionOutcome::Found(found) if found.source == root));
+        } else {
+            assert!(matches!(outcome, ResolutionOutcome::Unresolved));
+        }
+    }
+}
+
+#[test]
 fn self_crate_alias_keeps_existing_longest_module_prefix_semantics() {
     let aliases = collect_internal_aliases(&[alias(&["consumer"], "this_crate")], &index());
     assert_target(
