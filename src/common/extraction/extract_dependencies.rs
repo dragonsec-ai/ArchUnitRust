@@ -416,6 +416,13 @@ mod tests {
         }
     }
 
+    fn use_alias(current: LogicalModule, segments: &[&str], binding: &str) -> RawReference {
+        let mut reference = reference(current, segments);
+        reference.kind = ImportKind::Use;
+        reference.binding = Some(binding.to_owned());
+        reference
+    }
+
     fn index() -> BTreeMap<LogicalModule, String> {
         [
             (module("lib", &[]), "src/lib.rs"),
@@ -486,9 +493,7 @@ mod tests {
     #[test]
     fn resolves_paths_through_internal_aliases() {
         let current = module("lib", &["consumer"]);
-        let mut crate_api = reference(current.clone(), &["crate", "api"]);
-        crate_api.kind = ImportKind::Use;
-        crate_api.binding = Some("public_api".to_owned());
+        let crate_api = use_alias(current.clone(), &["crate", "api"], "public_api");
 
         for (declaration, binding, segments, expected) in [
             (
@@ -519,9 +524,7 @@ mod tests {
     #[test]
     fn explicit_bindings_take_precedence_over_bare_module_candidates() {
         let current = module("lib", &["consumer"]);
-        let mut crate_api = reference(current.clone(), &["crate", "api"]);
-        crate_api.kind = ImportKind::Use;
-        crate_api.binding = Some("local".to_owned());
+        let crate_api = use_alias(current.clone(), &["crate", "api"], "local");
 
         for (declaration, binding, segments, expected) in [
             (crate_api, "local", &["local", "Thing"][..], "src/api.rs"),
@@ -615,9 +618,7 @@ mod tests {
         let current = module("lib", &["consumer"]);
         let aliases =
             collect_internal_aliases(&[alias(current.clone(), "renamed_crate")], &index());
-        let mut import = reference(current, &["renamed_crate", "Risk"]);
-        import.kind = ImportKind::Use;
-        import.binding = Some("RenamedRisk".to_owned());
+        let import = use_alias(current, &["renamed_crate", "Risk"], "RenamedRisk");
 
         assert_alias_target(&import, &aliases, "src/lib.rs");
     }
