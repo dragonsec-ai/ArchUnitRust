@@ -416,13 +416,6 @@ mod tests {
         }
     }
 
-    fn use_alias(current: LogicalModule, segments: &[&str], binding: &str) -> RawReference {
-        let mut reference = reference(current, segments);
-        reference.kind = ImportKind::Use;
-        reference.binding = Some(binding.to_owned());
-        reference
-    }
-
     fn index() -> BTreeMap<LogicalModule, String> {
         [
             (module("lib", &[]), "src/lib.rs"),
@@ -445,6 +438,13 @@ mod tests {
         declaration.kind = ImportKind::ExternCrate;
         declaration.binding = Some(binding.to_owned());
         declaration
+    }
+
+    fn use_alias(current: LogicalModule, segments: &[&str], binding: &str) -> RawReference {
+        let mut reference = reference(current, segments);
+        reference.kind = ImportKind::Use;
+        reference.binding = Some(binding.to_owned());
+        reference
     }
 
     fn assert_alias_target(reference: &RawReference, aliases: &AliasMap, expected: &str) {
