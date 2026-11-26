@@ -1,44 +1,49 @@
-# ArchUnitRust
+# ArchUnitRust — Architecture testing for Rust
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/dragonsec-ai/ArchUnitRust/37e979f8151f303e53d9cb69728ed29c3336e18f/docs/assets/archunit-rust.png" width="150" height="150" alt="ArchUnitRust logo">
+</p>
 
 [![Crates.io](https://img.shields.io/crates/v/archunit.svg)](https://crates.io/crates/archunit)
-[![CI](https://github.com/LukasNiessen/ArchUnitRust/actions/workflows/ci.yml/badge.svg)](https://github.com/LukasNiessen/ArchUnitRust/actions/workflows/ci.yml)
-[![Documentation](https://github.com/LukasNiessen/ArchUnitRust/actions/workflows/pages.yml/badge.svg)](https://github.com/LukasNiessen/ArchUnitRust/actions/workflows/pages.yml)
+[![CI](https://github.com/dragonsec-ai/ArchUnitRust/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dragonsec-ai/ArchUnitRust/actions/workflows/ci.yml)
+[![Documentation](https://github.com/dragonsec-ai/ArchUnitRust/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/dragonsec-ai/ArchUnitRust/actions/workflows/pages.yml)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/LICENSE)
 
-Architecture tests for Cargo projects, expressed as ordinary Rust tests. ArchUnitRust is part of
-**ArchUnitEverything** — one architecture-testing library per language.
+Write architecture rules as ordinary Rust tests. Keep database imports out of your API, catch
+dependency cycles between modules, or set a limit on how many methods a service can grow. When a
+dependency breaks a rule, `cargo test` shows which files are involved and how they are connected.
 
 > **Status:** `archunit` 0.0.2 is published on crates.io, requires Rust 1.85 or newer, and remains
 > under active development.
 
-[User guide](https://lukasniessen.github.io/ArchUnitRust/) ·
-[API reference](https://lukasniessen.github.io/ArchUnitRust/api/archunit/)
+[Install](#install) · [Quickstart](#quickstart) · [Demo](#demo) · [Use cases](#use-cases) · [Limitations](#known-limitations) ·
+[User guide](https://dragonsec-ai.github.io/ArchUnitRust/) ·
+[API reference](https://dragonsec-ai.github.io/ArchUnitRust/api/archunit/)
 
-## ⚡ Install
+## Install
 
-ArchUnit rules belong in the project that they check, so add the crate as a development dependency:
+Add `archunit` as a development dependency of the package you want to check.
 
 ```console
 cargo add --dev archunit@0.0.2
 ```
 
-The equivalent `Cargo.toml` entry is:
+You can also add the dependency in `Cargo.toml`.
 
 ```toml
 [dev-dependencies]
 archunit = "0.0.2"
 ```
 
-Cargo resolves the registry version into `Cargo.lock`. Commit that lockfile when the consuming
-project normally tracks it.
+## Quickstart
 
-## File rules
-
-### First rule: a file boundary
-
-Create `tests/architecture.rs`, adapt the two project-relative paths, and add this ten-line test:
+Suppose handlers live in `src/api/` and storage lives in `src/database/`. To catch a handler
+that imports the database directly, create `tests/architecture.rs` and use the paths from your
+own project.
 
 ```rust,no_run
 use archunit::{assert_passes, project_files};
+
 #[test]
 fn api_does_not_reach_database() {
     let rule = project_files()
@@ -46,18 +51,49 @@ fn api_does_not_reach_database() {
         .should_not()
         .depend_on_files()
         .in_path("src/database/**");
+
     assert_passes!(rule);
 }
 ```
 
-Run it with `cargo test --test architecture`. `project_files()` discovers the containing Cargo
-package or workspace, analyzes production targets, and returns a lazy rule value. `assert_passes!`
-executes the rule and reports every violation with its dependency evidence. No test-framework
-adapter or global initialization is required.
+Run the test from your project root.
 
-## 🎬 Demo
+```sh
+cargo test --test architecture
+```
 
-https://github.com/user-attachments/assets/45f084a1-58da-4de2-89ed-5a2ba9ab12d0
+Your regular `cargo test` run picks it up in CI. By default, ArchUnitRust discovers the containing
+Cargo package or workspace and checks production targets. If the source selector matches no files,
+the test fails, so a renamed directory cannot silently disable the rule.
+
+If a handler in `src/api/mod.rs` calls `crate::database::query()` in `src/database/mod.rs`,
+the assertion reports the dependency and the kind of reference that introduced it.
+
+```text
+Found 1 architecture violation:
+
+  1. File dependency violation
+     File 'src/api/mod.rs' depends on forbidden file 'src/database/mod.rs'. Evidence: src/api/mod.rs -> src/database/mod.rs [path_reference].
+```
+
+## Demo
+
+<https://github.com/user-attachments/assets/45f084a1-58da-4de2-89ed-5a2ba9ab12d0>
+
+## Use cases
+
+| What do you want to check? | Start here |
+| --- | --- |
+| Catch cycles, imports of a forbidden crate, or files that violate a naming convention. | [File rules](#file-rules) |
+| Allow the API to call the application layer and the application layer to call storage. | [Named layer policies](#named-layer-policies) |
+| Group files into components and verify their dependencies against a PlantUML diagram. | [Slice dependencies](#slice-dependencies) |
+| Limit the number of methods on a type, measure cohesion, or track coupling between files. | [Rust-native metrics](#rust-native-metrics) |
+| See what depends on a module before changing it. Export the graph as Mermaid, DOT, D2, CSV, JSON, or HTML. | [Dependency graph snapshots](#dependency-graph-snapshots) |
+| Use violation data in your own test output or CI tooling. | [Testing and framework-neutral results](#testing-and-framework-neutral-results) |
+
+For examples from a working codebase, see [ArchUnitRust’s own architecture tests](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/tests/architecture.rs).
+
+## File rules
 
 ### Fluent API grammar
 
@@ -127,32 +163,6 @@ let _: [&dyn Checkable; 3] = [&services, &approved_crates, &manageable_files];
 containing directory, source text, and non-blank line count. Stored predicates are
 `Send + Sync + 'static`; captured configuration therefore needs owned, thread-safe values.
 
-## Feature guide
-
-The public API is re-exported from the `archunit` crate root. Its implemented feature areas each
-have a source-checked example below:
-
-| Feature area | Start with | Example |
-| --- | --- | --- |
-| File rules | `project_files()` | [File rules](#file-rules) |
-| Named layers | `project_layers()` | [Named layer policies](#named-layer-policies) |
-| Captured slices and PlantUML | `project_slices()` | [Slice dependencies](#slice-dependencies) |
-| Rust-native metrics | `metrics()` | [Rust-native metrics](#rust-native-metrics) |
-| Dependency graph reports | `project_graph()` | [Dependency graph snapshots](#dependency-graph-snapshots) |
-| Test integration and structured results | `assert_passes!` / `Checkable` | [Testing and framework-neutral results](#testing-and-framework-neutral-results) |
-
-All Rust snippets in this README are included in the crate documentation and compiled as doctests.
-The sections after this guide are the detailed reference for the implemented surface.
-
-## Known limitations
-
-- extraction is syntax-based: it does not expand macros or inspect build-script-generated source,
-  evaluates `cfg` branches as a conservative union, and exposes files rather than Rust items as
-  dependency nodes.
-
-These are explicit boundaries, not implied compatibility claims. See the
-[porting plan](docs/PORTING_PLAN.md#v01-boundary) for the complete v0.1 scope.
-
 ## Pattern exclusions
 
 Every pattern selector still accepts a plain string. Wrap the same string with `pattern` when that
@@ -209,7 +219,7 @@ fn inspect_metrics() -> Result<(), ArchUnitError> {
 }
 ```
 
-In v0.1 one distance component is one analyzed Rust source file. Abstractness is the ratio of traits
+Each analyzed Rust source file is one distance component. Abstractness is the ratio of traits
 to all declared types; instability uses distinct incoming and outgoing internal file dependencies.
 The remaining terminals are `distance_from_main_sequence()`, `coupling_factor()`, and
 `normalized_distance()`. File and type selectors choose reported components but do not shrink the
@@ -627,6 +637,13 @@ let graph = Graph::from_edges([dependency.clone()]);
 assert_eq!(graph.edges(), &[dependency]);
 ```
 
+## Known limitations
+
+The dependency graph has one node per source file. The extractor reads Rust syntax and combines
+all `cfg` branches, so it can report a dependency that is absent on a particular target. It skips
+macro expansion and build-script-generated source. A file that fails to parse produces a diagnostic
+and is skipped. See [how extraction works](https://dragonsec-ai.github.io/ArchUnitRust/internals.html).
+
 ## Rust dependency extraction
 
 `extract_graph` discovers Cargo workspace sources, follows Rust module layout, classifies internal
@@ -650,7 +667,7 @@ resolving those expressions.
 
 ## Executable self-architecture
 
-ArchUnitRust dogfoods its public API in [`tests/architecture.rs`](tests/architecture.rs). The suite
+ArchUnitRust dogfoods its public API in [`tests/architecture.rs`](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/tests/architecture.rs). The suite
 keeps `common` limited to itself, the standard library, and the explicit Rust analysis toolchain;
 forbids dependencies between the `files`, `graph`, `layers`, `metrics`, and `slices` domains; and
 prevents implementation files from importing through `src/lib.rs`. `lib.rs` is therefore an
@@ -678,8 +695,13 @@ If the same source-target pair also has a `Use`, `PathReference`, or other retai
 in the cycle graph with that evidence. The self-suite applies this rule independently to the
 top-level aggregation files and every architectural unit. This preserves the deliberate closed
 `Violation`/`Checkable` aggregation seam while still rejecting cycles inside any unit. See
-[ADR 0022](docs/adr/0022-enforce-rust-aware-self-architecture.md) for the dependency directions and
+[ADR 0022](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/docs/adr/0022-enforce-rust-aware-self-architecture.md) for the dependency directions and
 trade-offs.
 
-Siblings: [ArchUnitTS](https://github.com/LukasNiessen/ArchUnitTS) ·
-[ArchUnitPython](https://github.com/LukasNiessen/ArchUnitPython)
+## Related projects
+
+ArchUnitRust is part of **ArchUnitEverything**, a family of architecture-testing libraries inspired
+by ArchUnit. Explore the sibling projects for [TypeScript](https://github.com/LukasNiessen/ArchUnitTS),
+[Python](https://github.com/LukasNiessen/ArchUnitPython), and [Ruby](https://github.com/dragonsec-ai/ArchUnitRuby).
+
+The [contributing guide](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/CONTRIBUTING.md) explains how to run the project’s own checks and propose changes.
