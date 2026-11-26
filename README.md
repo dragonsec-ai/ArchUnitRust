@@ -6,7 +6,7 @@
 <p align="center">
   <a href="https://github.com/dragonsec-ai/ArchUnitRust/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://github.com/dragonsec-ai/ArchUnitRust/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/dragonsec-ai/ArchUnitRust/ci.yml?branch=main&amp;label=build%20%26%20tests" alt="Build &amp; tests"></a>
-  <a href="https://github.com/dragonsec-ai/ArchUnitRust/stargazers"><img src="https://img.shields.io/github/stars/dragonsec-ai/ArchUnitRust.svg" alt="GitHub stars"></a><br>
+  <a href="https://github.com/dragonsec-ai/ArchUnitRust"><img src="https://img.shields.io/github/stars/dragonsec-ai/ArchUnitRust.svg" alt="GitHub stars"></a><br>
   <a href="https://crates.io/crates/archunit"><img src="https://img.shields.io/crates/dr/archunit.svg?color=007ec6" alt="Recent crates.io downloads"></a>
   <a href="https://crates.io/crates/archunit"><img src="https://img.shields.io/crates/d/archunit.svg?label=total%20downloads&amp;color=007ec6" alt="Total crates.io downloads"></a>
 </p>
