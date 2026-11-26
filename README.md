@@ -1,7 +1,7 @@
 # ArchUnitRust — Architecture testing for Rust
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/dragonsec-ai/ArchUnitRust/34c7bf075120b65f80ed7a9b4b127eee2972f7ad/docs/assets/archunit-rust.png" width="150" height="150" alt="ArchUnitRust logo">
+  <img src="https://raw.githubusercontent.com/dragonsec-ai/ArchUnitRust/a65acd82826c1c490d4286ce829b9dc236b8a649/docs/assets/archunit-rust.png" width="150" height="150" alt="ArchUnitRust logo">
 </p>
 
 [![Crates.io](https://img.shields.io/crates/v/archunit.svg)](https://crates.io/crates/archunit)
