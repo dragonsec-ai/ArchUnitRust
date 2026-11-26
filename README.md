@@ -13,7 +13,7 @@ Write architecture rules as ordinary Rust tests. Keep database imports out of yo
 dependency cycles between modules, or set a limit on how many methods a service can grow. When a
 dependency breaks a rule, `cargo test` shows which files are involved and how they are connected.
 
-> **Status:** `archunit` 0.0.2 is published on crates.io, requires Rust 1.85 or newer, and remains
+> **Status:** `archunit` 0.0.3 is published on crates.io, requires Rust 1.85 or newer, and remains
 > under active development.
 
 [Install](#install) · [Quickstart](#quickstart) · [Demo](#demo) · [Use cases](#use-cases) · [Limitations](#known-limitations) ·
@@ -25,14 +25,14 @@ dependency breaks a rule, `cargo test` shows which files are involved and how th
 Add `archunit` as a development dependency of the package you want to check.
 
 ```console
-cargo add --dev archunit@0.0.2
+cargo add --dev archunit@0.0.3
 ```
 
 You can also add the dependency in `Cargo.toml`.
 
 ```toml
 [dev-dependencies]
-archunit = "0.0.2"
+archunit = "0.0.3"
 ```
 
 ## Quickstart
