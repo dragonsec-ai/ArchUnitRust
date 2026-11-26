@@ -57,7 +57,7 @@ adapter or global initialization is required.
 
 ## 🎬 Demo
 
-https://github.com/user-attachments/assets/45f084a1-58da-4de2-89ed-5a2ba9ab12d0
+<https://github.com/user-attachments/assets/45f084a1-58da-4de2-89ed-5a2ba9ab12d0>
 
 ### Fluent API grammar
 
