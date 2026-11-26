@@ -1,28 +1,29 @@
-# ArchUnitRust — Architecture testing for Rust
+# ArchUnitRust - Architecture Testing
 
-<p align="center">
+<p align="center" id="readme-top">
   <img src="https://raw.githubusercontent.com/dragonsec-ai/ArchUnitRust/37e979f8151f303e53d9cb69728ed29c3336e18f/docs/assets/archunit-rust.png" width="150" height="150" alt="ArchUnitRust logo">
 </p>
+<p align="center">
+  <a href="https://github.com/dragonsec-ai/ArchUnitRust/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://github.com/dragonsec-ai/ArchUnitRust/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/dragonsec-ai/ArchUnitRust/ci.yml?branch=main&amp;label=build%20%26%20tests" alt="Build &amp; tests"></a>
+  <a href="https://github.com/dragonsec-ai/ArchUnitRust"><img src="https://img.shields.io/github/stars/dragonsec-ai/ArchUnitRust.svg" alt="GitHub stars"></a><br>
+  <a href="https://crates.io/crates/archunit"><img src="https://img.shields.io/crates/dr/archunit.svg?color=007ec6" alt="Recent crates.io downloads"></a>
+  <a href="https://crates.io/crates/archunit"><img src="https://img.shields.io/crates/d/archunit.svg?label=total%20downloads&amp;color=007ec6" alt="Total crates.io downloads"></a>
+</p>
 
-[![Crates.io](https://img.shields.io/crates/v/archunit.svg)](https://crates.io/crates/archunit)
-[![CI](https://github.com/dragonsec-ai/ArchUnitRust/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dragonsec-ai/ArchUnitRust/actions/workflows/ci.yml)
-[![Documentation](https://github.com/dragonsec-ai/ArchUnitRust/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/dragonsec-ai/ArchUnitRust/actions/workflows/pages.yml)
-[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/LICENSE)
+Enforce architecture rules in Rust with ordinary Cargo tests. Catch dependency cycles, keep
+database code out of your API, and check that modules follow your architecture diagram.
+When a rule fails, the test output shows the files and references responsible.
 
-Write architecture rules as ordinary Rust tests. Keep database imports out of your API, catch
-dependency cycles between modules, or set a limit on how many methods a service can grow. When a
-dependency breaks a rule, `cargo test` shows which files are involved and how they are connected.
+[Quickstart](#-5-min-quickstart) • [Demo](#-demo) • [Use cases](#-use-cases) • [Examples](#-example-projects) • [Features](#-features) • [Contributing](#-contributing) • [User guide](https://dragonsec-ai.github.io/ArchUnitRust/) • [API reference](https://dragonsec-ai.github.io/ArchUnitRust/api/archunit/)
 
-> **Status:** `archunit` 0.0.3 is published on crates.io, requires Rust 1.85 or newer, and remains
-> under active development.
+<a id="quickstart"></a>
 
-[Install](#install) · [Quickstart](#quickstart) · [Demo](#demo) · [Use cases](#use-cases) · [Limitations](#known-limitations) ·
-[User guide](https://dragonsec-ai.github.io/ArchUnitRust/) ·
-[API reference](https://dragonsec-ai.github.io/ArchUnitRust/api/archunit/)
+## ⚡ 5 min Quickstart
 
-## Install
+### Install
 
-Add `archunit` as a development dependency of the package you want to check.
+Add [`archunit`](https://crates.io/crates/archunit) as a development dependency. It requires Rust 1.85 or newer.
 
 ```console
 cargo add --dev archunit@0.0.3
@@ -35,7 +36,7 @@ You can also add the dependency in `Cargo.toml`.
 archunit = "0.0.3"
 ```
 
-## Quickstart
+### Add a test
 
 Suppose handlers live in `src/api/` and storage lives in `src/database/`. To catch a handler
 that imports the database directly, create `tests/architecture.rs` and use the paths from your
@@ -56,88 +57,112 @@ fn api_does_not_reach_database() {
 }
 ```
 
-Run the test from your project root.
+### Run locally and in CI
+
+Run the boundary test from your project root.
 
 ```sh
 cargo test --test architecture
 ```
 
-Your regular `cargo test` run picks it up in CI. By default, ArchUnitRust discovers the containing
+Cargo also runs this test as part of the full suite. ArchUnitRust discovers the containing
 Cargo package or workspace and checks production targets. If the source selector matches no files,
 the test fails, so a renamed directory cannot silently disable the rule.
 
-If a handler in `src/api/mod.rs` calls `crate::database::query()` in `src/database/mod.rs`,
-the assertion reports the dependency and the kind of reference that introduced it.
+To run the tests for every member of a Cargo workspace, use this command in CI.
 
-```text
-Found 1 architecture violation:
-
-  1. File dependency violation
-     File 'src/api/mod.rs' depends on forbidden file 'src/database/mod.rs'. Evidence: src/api/mod.rs -> src/database/mod.rs [path_reference].
+```sh
+cargo test --workspace
 ```
 
-## Demo
+See [the failure output](#-reading-a-test-failure) for a handler that calls the database directly.
+
+<a id="demo"></a>
+
+## 🎬 Demo
 
 <https://github.com/user-attachments/assets/45f084a1-58da-4de2-89ed-5a2ba9ab12d0>
 
-## Use cases
+<a id="use-cases"></a>
 
-| What do you want to check? | Start here |
+## 🐹 Use Cases
+
+- **Keep a service layered.** Let HTTP handlers call the application layer and let that layer call storage. A direct dependency from the handler to storage fails the test. [Named layer policies](#named-layer-policies)
+- **Use a diagram as a contract.** Group Rust files into components and check each dependency against the arrows in a PlantUML diagram. [Slice dependencies](#slice-dependencies)
+- **Plan a refactor.** Find the files that depend on a module, then export a dependency graph to share in code review. [Dependency graph snapshots](#dependency-graph-snapshots)
+- **Keep large types in check.** Put a ceiling on the method count for service types, or measure cohesion and coupling before deciding where to split a module. [Rust-native metrics](#rust-native-metrics)
+
+## 🐲 Example Projects
+
+| Example | What to look for |
 | --- | --- |
-| Catch cycles, imports of a forbidden crate, or files that violate a naming convention. | [File rules](#file-rules) |
-| Allow the API to call the application layer and the application layer to call storage. | [Named layer policies](#named-layer-policies) |
-| Group files into components and verify their dependencies against a PlantUML diagram. | [Slice dependencies](#slice-dependencies) |
-| Limit the number of methods on a type, measure cohesion, or track coupling between files. | [Rust-native metrics](#rust-native-metrics) |
-| See what depends on a module before changing it. Export the graph as Mermaid, DOT, D2, CSV, JSON, or HTML. | [Dependency graph snapshots](#dependency-graph-snapshots) |
-| Use violation data in your own test output or CI tooling. | [Testing and framework-neutral results](#testing-and-framework-neutral-results) |
+| [A crate using the published library](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/tests/fixtures/registry_consumer/tests/architecture.rs) | A single integration test keeps the API independent of persistence. |
+| [A layered Cargo project](https://github.com/dragonsec-ai/ArchUnitRust/tree/main/tests/fixtures/layered_project) | Follow the imports through the API, application and database modules, then see [the test that catches the forbidden edge](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/tests/public_layers_api.rs). |
+| [ArchUnitRust’s own architecture tests](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/tests/architecture.rs) | The crate checks dependencies between its own domains and detects executable cycles inside each one. |
 
-For examples from a working codebase, see [ArchUnitRust’s own architecture tests](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/tests/architecture.rs).
+## 🐣 Features
 
-## File rules
+### Circular dependencies
 
-### Fluent API grammar
-
-Check rules read from left to right:
-
-```text
-entry point -> subject selectors -> mood -> condition -> optional condition selectors -> execute
-```
-
-For file rules, each stage has a small, fixed vocabulary:
-
-| Stage | API |
-| --- | --- |
-| Entry point | `project_files()` or `project_files_in(path)` |
-| Subject selectors | `with_name`, `in_folder`, `in_path`, `in_file` |
-| Mood | `should()` or `should_not()` |
-| Conditions | `have_no_cycles`, `have_name`, `be_in_folder`, `be_in_path`, `depend_on_files`, `depend_on_external_modules`, `adhere_to` |
-| Execute | `assert_passes!(rule)`, `rule.check()`, or `rule.check_with(&options)` |
-
-Chained subject selectors use AND semantics. Target selectors after `depend_on_files()` use OR
-semantics. A positive dependency condition is an allowlist for every outgoing dependency; a
-negated dependency condition is a denylist. Plain strings are case-sensitive, complete-candidate
-globs: `*` stays within one path segment, while `**` crosses separators. Builders consume and
-return values, so clone a partial builder when several rules share a scope.
-
-Every check is strict about stale selectors. A scope that selects no files returns an
-`EmptyTestViolation` instead of silently passing. Make an intentionally optional scope explicit:
+A pair of services can each compile while depending on one another. This test catches a
+cycle of any length among the files under `src/services/`.
 
 ```rust,no_run
-use archunit::{CheckOptions, assert_passes, project_files};
+use archunit::{assert_passes, project_files};
 
-let optional_rule = project_files()
-    .in_folder("generated/**")
-    .should()
-    .have_no_cycles();
-let options = CheckOptions::new().with_allow_empty_tests(true);
-
-assert_passes!(optional_rule, options);
+#[test]
+fn services_are_cycle_free() {
+    let rule = project_files()
+        .in_path("src/services/**")
+        .should()
+        .have_no_cycles();
+    assert_passes!(rule);
+}
 ```
 
-### More file conditions
+### Named layer policies
 
-Naming, placement, internal dependencies, external Cargo crates, and custom predicates all use the
-same grammar:
+Layers turn a set of file selectors into a compact dependency policy. The target list is a borrowed
+slice in Rust; an empty allowlist seals a layer against every cross-layer dependency:
+
+```rust,no_run
+use archunit::{assert_passes, project_layers};
+
+#[test]
+fn dependencies_follow_the_declared_layers() {
+    let rule = project_layers()
+        .layer("api")
+        .defined_by("src/api/**")
+        .layer("application")
+        .defined_by_folder("src/application")
+        .layer("database")
+        .defined_by("src/database/**")
+        .where_layer("api")
+        .may_only_depend_on_layers(&["application"])
+        .where_layer("application")
+        .may_only_depend_on_layers(&["database"])
+        .where_layer("database")
+        .may_only_depend_on_layers(&[]);
+
+    assert_passes!(rule);
+}
+```
+
+`layers()` aliases `project_layers()`; explicit project entry points are `layers_in(path)` and
+`project_layers_in(path)`. Repeating `layer(name)` adds another OR selector to that layer. If layer
+definitions overlap, the first declared layer wins. Dependencies within one layer and dependencies
+with either endpoint outside every declared layer are ignored.
+
+`may_not_depend_on_layers(&[...])` adds a blocklist. Blocklists are evaluated before allowlists, so
+one file edge produces at most one layer violation even when both policies reject it. Source layers
+used by a policy receive the same strict empty-selection guard as file rules.
+
+<a id="more-file-conditions"></a>
+
+### File rules
+
+These three rules check service filenames, restrict which external crates a file may use, and
+apply a custom line-count condition. Pass any of them to `assert_passes!` to run it.
 
 ```rust
 use archunit::{Checkable, FileInfo, project_files};
@@ -163,44 +188,43 @@ let _: [&dyn Checkable; 3] = [&services, &approved_crates, &manageable_files];
 containing directory, source text, and non-blank line count. Stored predicates are
 `Send + Sync + 'static`; captured configuration therefore needs owned, thread-safe values.
 
-## Pattern exclusions
+### Rust-native metrics
 
-Every pattern selector still accepts a plain string. Wrap the same string with `pattern` when that
-one selector needs exclusions:
+#### Metric thresholds
+
+The first rule limits each service type to 20 methods. The second applies a project-specific
+threshold to instability.
 
 ```rust,no_run
-use archunit::{assert_passes, pattern, project_files};
+use archunit::{MetricSubject, assert_passes, metrics};
 
-let rule = project_files()
-    .in_path(
-        pattern("src/**")
-            .except_in_folder("src/generated/**")
-            .except_with_name("*_generated.rs"),
-    )
-    .should_not()
-    .depend_on_files()
-    .in_path(pattern("src/database/**").except("src/database/public.rs"));
+let threshold = metrics()
+    .for_types_matching("*Service")
+    .count()
+    .method_count()
+    .should_be_below_or_equal(20.0);
+assert_passes!(threshold);
 
-assert_passes!(rule);
+let predicate = metrics()
+    .distance()
+    .instability()
+    .should_satisfy(|value, subject: &MetricSubject| {
+        subject.as_distance().is_some() && value <= 0.8
+    });
+assert_passes!(predicate);
 ```
 
-`except` and `except_all` inherit the parent selector target. Target-explicit alternatives are
-`except_in_path`, `except_in_folder`, `except_with_name`, and
-`except_for_types_matching`. Exclusions on one selector use OR semantics—matching any one removes
-the candidate from that parent match—while chained parent selectors retain their normal AND
-semantics. The same contract covers file scopes and predicates, dependency objects, layer
-definitions, graph queries, metric file/type scopes, and slice capture projections.
+The other threshold names are `should_be_below`, `should_be_above`, `should_be`, and
+`should_be_above_or_equal`; there are intentionally no synonyms. Thresholds must be finite and
+`should_be` uses exact `f64` equality. Use `should_satisfy` when a project needs an explicit
+floating-point tolerance. Built-in predicates receive `MetricSubject`; custom-metric predicates keep
+the more precise `TypeInfo` argument.
 
-Exclusions use the same glob/regex syntax, exact matching, separator normalization, and case policy
-as their parent factory. `defined_by` slice exclusions are globs; `defined_by_regex` exclusions are
-Rust regular expressions. An invalid parent or exclusion remains a user configuration error and is
-reported before Cargo project discovery.
+#### Measuring coupling and cohesion
 
-## Rust-native metrics
-
-Metrics expose immutable measurements rather than architecture verdicts. Count and LCOM families
-use Rust vocabulary; component-distance metrics combine file syntax with the complete internal
-dependency graph:
+Use count metrics to limit the number of methods on a service, LCOM to measure cohesion, and
+distance metrics to inspect coupling. To see which files depend heavily on other modules,
+print their instability scores.
 
 ```rust,no_run
 use archunit::{ArchUnitError, metrics};
@@ -239,6 +263,8 @@ let rule = metrics()
 assert_passes!(rule);
 ```
 
+#### Custom metrics
+
 Project-specific metrics use generic callbacks over the full immutable Rust type model. The same
 selection can be measured repeatedly or consumed into a typed predicate rule:
 
@@ -259,32 +285,7 @@ The calculation and predicate each run once per selected type on every execution
 callbacks propagate normally with their Rust backtrace; they are never converted into architecture
 violations. Non-finite custom values are preserved so a predicate can choose its own policy.
 
-Every metric selection supports exactly five numeric threshold verbs plus `should_satisfy`:
-
-```rust,no_run
-use archunit::{MetricSubject, assert_passes, metrics};
-
-let threshold = metrics()
-    .for_types_matching("*Service")
-    .count()
-    .method_count()
-    .should_be_below_or_equal(20.0);
-assert_passes!(threshold);
-
-let predicate = metrics()
-    .distance()
-    .instability()
-    .should_satisfy(|value, subject: &MetricSubject| {
-        subject.as_distance().is_some() && value <= 0.8
-    });
-assert_passes!(predicate);
-```
-
-The other threshold names are `should_be_below`, `should_be_above`, `should_be`, and
-`should_be_above_or_equal`; there are intentionally no synonyms. Thresholds must be finite and
-`should_be` uses exact `f64` equality. Use `should_satisfy` when a project needs an explicit
-floating-point tolerance. Built-in predicates receive `MetricSubject`; custom-metric predicates keep
-the more precise `TypeInfo` argument.
+#### HTML reports
 
 Each built-in metric family can also be exported as one self-contained HTML document. The exporter
 adds `.html` when needed, creates missing parent directories, and returns the final path:
@@ -310,106 +311,7 @@ snapshot. `MetricsExporter` also renders or writes a `MetricsReportData` map dir
 no scripts or network dependencies; names, values, and titles are HTML-escaped. Timestamps are UTC
 and can be disabled for byte-stable build artifacts. Custom CSS replaces the built-in stylesheet.
 
-## Detailed inspection and readable output
-
-Checks are quiet by default. Logging is enabled only by putting a `LoggingOptions` value into the
-`CheckOptions` passed to that check; the crate never configures a global logger:
-
-```rust,no_run
-use archunit::{
-    ArchUnitError, CheckOptions, Checkable, LogFileMode, LogLevel, LoggingOptions, project_files,
-};
-
-fn check_boundaries() -> Result<(), ArchUnitError> {
-    let logging = LoggingOptions::new()
-        .with_level(LogLevel::Debug)
-        .with_console_output(false)
-        .with_file_output("target/architecture-logs")
-        .with_file_mode(LogFileMode::Overwrite);
-    let log_path = logging
-        .file_path()
-        .expect("file output exposes its artifact path")
-        .to_path_buf();
-    let options = CheckOptions::new().with_logging(logging);
-    let rule = project_files()
-        .in_folder("src/api/**")
-        .should_not()
-        .depend_on_files()
-        .in_folder("src/database/**");
-
-    let violations = rule.check_with(&options)?;
-    println!("CI log: {}", log_path.display());
-    assert!(violations.is_empty());
-    Ok(())
-}
-```
-
-`LoggingOptions::new()` logs at `Info` level to the console. `Debug` is the fullest inspection
-level: cache hit/miss and source options, every discovered file and resolved dependency, extraction
-diagnostics, selected files/layers/slices, metric values and thresholds, and violation details.
-Graph reports also log their query, selected nodes, aggregated edges, and summary. `Info` shows
-check boundaries; violations and failed verdicts use `Warn`, while execution errors use `Error`. The fixed
-event vocabulary is `start check`, `end check`, `log progress`, `log violation`, and `log metric`.
-Ordinary `debug`, `info`, `warn`, and `error` records are also available through `CheckLogger` for
-custom `Checkable` implementations.
-
-For a highlighted terminal transcript, add `.with_console_color(true)` to the logging options.
-Debug is cyan, info green, warnings yellow, and errors red. ANSI requires an explicit request and an interactive console, respects `NO_COLOR` and `CI`,
-and never appears in redirected output or log files. Debug inspection reads the graph and selected values already used by the
-check; it does not rerun predicates or change violations. Logging I/O failures retain their
-existing error behavior.
-
-For test failures, `ResultFactory` already assembles numbered, indented explanations with
-selectors, dependency evidence, cycles, and metric values. Use
-`TestResultOptions::new().with_color(ColorChoice::Always)` for ANSI highlighting,
-`ColorChoice::Never` for plain CI artifacts, or the default `Auto`.
-
-File output creates missing directories and chooses a collision-resistant, UTC-timestamped `.log`
-filename. `file_path()` exposes that path before execution so CI can archive it. `Append` preserves
-an existing file; `Overwrite` truncates it once before the first record. Clones of one configuration
-share only the lock and initialization state for that explicit file, making concurrent checks safe
-without introducing ambient process state. A logger with neither console nor file output is a user
-configuration error detected before project discovery. Filesystem and console failures are
-technical check errors rather than silently lost diagnostics.
-
-## Named layer policies
-
-Layers turn a set of file selectors into a compact dependency policy. The target list is a borrowed
-slice in Rust; an empty allowlist seals a layer against every cross-layer dependency:
-
-```rust,no_run
-use archunit::{assert_passes, project_layers};
-
-#[test]
-fn dependencies_follow_the_declared_layers() {
-    let rule = project_layers()
-        .layer("api")
-        .defined_by("src/api/**")
-        .layer("application")
-        .defined_by_folder("src/application")
-        .layer("database")
-        .defined_by("src/database/**")
-        .where_layer("api")
-        .may_only_depend_on_layers(&["application"])
-        .where_layer("application")
-        .may_only_depend_on_layers(&["database"])
-        .where_layer("database")
-        .may_only_depend_on_layers(&[]);
-
-    assert_passes!(rule);
-}
-```
-
-`layers()` aliases `project_layers()`; explicit project entry points are `layers_in(path)` and
-`project_layers_in(path)`. Repeating `layer(name)` adds another OR selector to that layer. If layer
-definitions overlap, the first declared layer wins. Dependencies within one layer and dependencies
-with either endpoint outside every declared layer are ignored.
-
-`may_not_depend_on_layers(&[...])` adds a blocklist. Blocklists are evaluated before allowlists, so
-one file edge produces at most one layer violation even when both policies reject it. Source layers
-used by a policy receive the same strict empty-selection guard as file rules.
-
-## Slice dependencies
+### Slice dependencies
 
 Slices derive architectural component names from project-relative Rust file paths. A portable slice
 pattern must contain exactly one `(**)` capture; that capture names the slice:
@@ -513,7 +415,7 @@ Use `to_plantuml_with` and `export_as_plantuml_with` for explicit `CheckOptions`
 `PlantUmlParser`, `PlantUmlDiagram`, `PlantUmlDependency`, and `PlantUmlRenderer` APIs work entirely
 on in-memory values.
 
-## Dependency graph snapshots
+### Dependency graph snapshots
 
 Graph reports first build one renderer-neutral snapshot. Every query modifier is immutable and lazy;
 only `snapshot()` or `summary()` locates and extracts the Cargo project:
@@ -553,7 +455,7 @@ summary counts. `raw_edge_count` counts selected merged file-to-file edges befor
 `edge_count` counts the final aggregated edges. This snapshot is the single input contract for every
 output format.
 
-## Dependency graph renderers
+### Dependency graph renderers
 
 The graph builder renders DOT, Mermaid, D2, CSV, JSON, and self-contained HTML. Each format has a
 `to_*()` string terminal and an `export_as_*()` UTF-8 file terminal. Export creates missing parent
@@ -590,7 +492,93 @@ CSV contains one row per aggregated edge. JSON contains the complete snapshot co
 its CSS and portable source views directly in the document: it has no scripts, remote assets, or
 network dependency.
 
-## Testing and framework-neutral results
+## 🔎 Pattern Matching
+
+### Fluent API grammar
+
+Check rules read from left to right:
+
+```text
+entry point -> subject selectors -> mood -> condition -> optional condition selectors -> execute
+```
+
+For file rules, each stage has a small, fixed vocabulary:
+
+| Stage | API |
+| --- | --- |
+| Entry point | `project_files()` or `project_files_in(path)` |
+| Subject selectors | `with_name`, `in_folder`, `in_path`, `in_file` |
+| Mood | `should()` or `should_not()` |
+| Conditions | `have_no_cycles`, `have_name`, `be_in_folder`, `be_in_path`, `depend_on_files`, `depend_on_external_modules`, `adhere_to` |
+| Execute | `assert_passes!(rule)`, `rule.check()`, or `rule.check_with(&options)` |
+
+Chained subject selectors use AND semantics. Target selectors after `depend_on_files()` use OR
+semantics. A positive dependency condition is an allowlist for every outgoing dependency; a
+negated dependency condition is a denylist. Plain strings are case-sensitive, complete-candidate
+globs: `*` stays within one path segment, while `**` crosses separators. Builders consume and
+return values, so clone a partial builder when several rules share a scope.
+
+Every check is strict about stale selectors. A scope that selects no files returns an
+`EmptyTestViolation` instead of silently passing. Make an intentionally optional scope explicit:
+
+```rust,no_run
+use archunit::{CheckOptions, assert_passes, project_files};
+
+let optional_rule = project_files()
+    .in_folder("generated/**")
+    .should()
+    .have_no_cycles();
+let options = CheckOptions::new().with_allow_empty_tests(true);
+
+assert_passes!(optional_rule, options);
+```
+
+### Pattern exclusions
+
+Every pattern selector still accepts a plain string. Wrap the same string with `pattern` when that
+one selector needs exclusions:
+
+```rust,no_run
+use archunit::{assert_passes, pattern, project_files};
+
+let rule = project_files()
+    .in_path(
+        pattern("src/**")
+            .except_in_folder("src/generated/**")
+            .except_with_name("*_generated.rs"),
+    )
+    .should_not()
+    .depend_on_files()
+    .in_path(pattern("src/database/**").except("src/database/public.rs"));
+
+assert_passes!(rule);
+```
+
+`except` and `except_all` inherit the parent selector target. Target-explicit alternatives are
+`except_in_path`, `except_in_folder`, `except_with_name`, and
+`except_for_types_matching`. Exclusions on one selector use OR semantics—matching any one removes
+the candidate from that parent match—while chained parent selectors retain their normal AND
+semantics. The same contract covers file scopes and predicates, dependency objects, layer
+definitions, graph queries, metric file/type scopes, and slice capture projections.
+
+Exclusions use the same glob/regex syntax, exact matching, separator normalization, and case policy
+as their parent factory. `defined_by` slice exclusions are globs; `defined_by_regex` exclusions are
+Rust regular expressions. An invalid parent or exclusion remains a user configuration error and is
+reported before Cargo project discovery.
+
+## 📢 Reading a Test Failure
+
+If a handler in `src/api/mod.rs` calls `crate::database::query()` in `src/database/mod.rs`,
+the assertion reports the dependency and the kind of reference that introduced it.
+
+```text
+Found 1 architecture violation:
+
+  1. File dependency violation
+     File 'src/api/mod.rs' depends on forbidden file 'src/database/mod.rs'. Evidence: src/api/mod.rs -> src/database/mod.rs [path_reference].
+```
+
+### Testing and framework-neutral results
 
 `assert_passes!(rule)` and `assert_passes!(rule, check_options)` are the native integration for
 ordinary `#[test]` functions. They preserve both formatted architecture violations and classified
@@ -637,14 +625,84 @@ let graph = Graph::from_edges([dependency.clone()]);
 assert_eq!(graph.edges(), &[dependency]);
 ```
 
-## Known limitations
+<a id="detailed-inspection-and-readable-output"></a>
 
-The dependency graph has one node per source file. The extractor reads Rust syntax and combines
-all `cfg` branches, so it can report a dependency that is absent on a particular target. It skips
-macro expansion and build-script-generated source. A file that fails to parse produces a diagnostic
-and is skipped. See [how extraction works](https://dragonsec-ai.github.io/ArchUnitRust/internals.html).
+## 📝 Debug Logging & Configuration
 
-## Rust dependency extraction
+Checks are quiet by default. Logging is enabled only by putting a `LoggingOptions` value into the
+`CheckOptions` passed to that check; the crate never configures a global logger:
+
+```rust,no_run
+use archunit::{
+    ArchUnitError, CheckOptions, Checkable, LogFileMode, LogLevel, LoggingOptions, project_files,
+};
+
+fn check_boundaries() -> Result<(), ArchUnitError> {
+    let logging = LoggingOptions::new()
+        .with_level(LogLevel::Debug)
+        .with_console_output(false)
+        .with_file_output("target/architecture-logs")
+        .with_file_mode(LogFileMode::Overwrite);
+    let log_path = logging
+        .file_path()
+        .expect("file output exposes its artifact path")
+        .to_path_buf();
+    let options = CheckOptions::new().with_logging(logging);
+    let rule = project_files()
+        .in_folder("src/api/**")
+        .should_not()
+        .depend_on_files()
+        .in_folder("src/database/**");
+
+    let violations = rule.check_with(&options)?;
+    println!("CI log: {}", log_path.display());
+    assert!(violations.is_empty());
+    Ok(())
+}
+```
+
+`LoggingOptions::new()` logs at `Info` level to the console. `Debug` is the fullest inspection
+level: cache hit/miss and source options, every discovered file and resolved dependency, extraction
+diagnostics, selected files/layers/slices, metric values and thresholds, and violation details.
+Graph reports also log their query, selected nodes, aggregated edges, and summary. `Info` shows
+check boundaries; violations and failed verdicts use `Warn`, while execution errors use `Error`. The fixed
+event vocabulary is `start check`, `end check`, `log progress`, `log violation`, and `log metric`.
+Ordinary `debug`, `info`, `warn`, and `error` records are also available through `CheckLogger` for
+custom `Checkable` implementations.
+
+For a highlighted terminal transcript, add `.with_console_color(true)` to the logging options.
+Debug is cyan, info green, warnings yellow, and errors red. ANSI requires an explicit request and an interactive console, respects `NO_COLOR` and `CI`,
+and never appears in redirected output or log files. Debug inspection reads the graph and selected values already used by the
+check; it does not rerun predicates or change violations. Logging I/O failures retain their
+existing error behavior.
+
+For test failures, `ResultFactory` already assembles numbered, indented explanations with
+selectors, dependency evidence, cycles, and metric values. Use
+`TestResultOptions::new().with_color(ColorChoice::Always)` for ANSI highlighting,
+`ColorChoice::Never` for plain CI artifacts, or the default `Auto`.
+
+File output creates missing directories and chooses a collision-resistant, UTC-timestamped `.log`
+filename. `file_path()` exposes that path before execution so CI can archive it. `Append` preserves
+an existing file; `Overwrite` truncates it once before the first record. Clones of one configuration
+share only the lock and initialization state for that explicit file, making concurrent checks safe
+without introducing ambient process state. A logger with neither console nor file output is a user
+configuration error detected before project discovery. Filesystem and console failures are
+technical check errors rather than silently lost diagnostics.
+
+## 🔲 Core Modules
+
+| Start with | Guide | Use it to |
+| --- | --- | --- |
+| `project_files()` | [Files](https://dragonsec-ai.github.io/ArchUnitRust/files.html) | Select files by path or name, then check imports, naming conventions and cycles. |
+| `project_layers()` | [Layers](https://dragonsec-ai.github.io/ArchUnitRust/layers.html) | Declare named layers and list the dependencies each layer may have. |
+| `project_slices()` | [Slices](https://dragonsec-ai.github.io/ArchUnitRust/slices.html) | Capture components from paths and check a PlantUML contract. |
+| `metrics()` | [Metrics](https://dragonsec-ai.github.io/ArchUnitRust/metrics.html) | Measure types and files, apply thresholds, and export HTML reports. |
+| `project_graph()` | [Graphs](https://dragonsec-ai.github.io/ArchUnitRust/graph.html) | Query dependencies and render a diagram or a machine-readable snapshot. |
+| `assert_passes!` | [Running a rule](https://dragonsec-ai.github.io/ArchUnitRust/running.html) | Run rules with Cargo and inspect the resulting violations. |
+
+## 🕵️ Technical Deep Dive
+
+### Rust dependency extraction
 
 `extract_graph` discovers Cargo workspace sources, follows Rust module layout, classifies internal
 and external dependencies, merges parallel edges, and returns non-fatal extraction diagnostics with
@@ -665,7 +723,14 @@ The optional scope matches the written Rust path exactly or by `::` prefix. The 
 suppress separate qualified-path expressions, and ignored imports still establish aliases for
 resolving those expressions.
 
-## Executable self-architecture
+### Known limitations
+
+The dependency graph has one node per source file. The extractor reads Rust syntax and combines
+all `cfg` branches, so it can report a dependency that is absent on a particular target. It skips
+macro expansion and build-script-generated source. A file that fails to parse produces a diagnostic
+and is skipped. See [how extraction works](https://dragonsec-ai.github.io/ArchUnitRust/internals.html).
+
+### Executable self-architecture
 
 ArchUnitRust dogfoods its public API in [`tests/architecture.rs`](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/tests/architecture.rs). The suite
 keeps `common` limited to itself, the standard library, and the explicit Rust analysis toolchain;
@@ -698,10 +763,34 @@ top-level aggregation files and every architectural unit. This preserves the del
 [ADR 0022](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/docs/adr/0022-enforce-rust-aware-self-architecture.md) for the dependency directions and
 trade-offs.
 
-## Related projects
+## ℹ️ FAQ
+
+**Where do architecture tests go?** Put them in `tests/architecture.rs` alongside your other
+integration tests. For a rule that checks a specific crate or workspace, pass its directory or
+manifest to `project_files_in(path)`. [Running a rule](https://dragonsec-ai.github.io/ArchUnitRust/running.html)
+
+**Why does a rule fail after I rename a folder?** A selector that matches no files produces an
+`EmptyTestViolation`. Update the path or opt into empty matches for that specific rule if the folder
+is optional. [Fluent API grammar](#fluent-api-grammar)
+
+**How do I exclude generated files?** Attach an exclusion to the selector for the generated
+directory or filename. Other rules can still check those files. [Pattern exclusions](#pattern-exclusions)
+
+## 🦊 Contributing
+
+To run the project’s checks and propose a change, follow the [contributing guide](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/CONTRIBUTING.md).
+Report a bug or suggest a new rule in [GitHub Issues](https://github.com/dragonsec-ai/ArchUnitRust/issues).
+
+<a id="related-projects"></a>
+
+## 💟 Community
 
 ArchUnitRust is part of **ArchUnitEverything**, a family of architecture-testing libraries inspired
 by ArchUnit. Explore the sibling projects for [TypeScript](https://github.com/LukasNiessen/ArchUnitTS),
 [Python](https://github.com/LukasNiessen/ArchUnitPython), and [Ruby](https://github.com/dragonsec-ai/ArchUnitRuby).
 
-The [contributing guide](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/CONTRIBUTING.md) explains how to run the project’s own checks and propose changes.
+## 📄 License
+
+ArchUnitRust is available under the [MIT license](https://github.com/dragonsec-ai/ArchUnitRust/blob/main/LICENSE).
+
+[Back to top](#readme-top)
