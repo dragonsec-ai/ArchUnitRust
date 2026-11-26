@@ -26,14 +26,14 @@ When a rule fails, the test output shows the files and references responsible.
 Add [`archunit`](https://crates.io/crates/archunit) as a development dependency. It requires Rust 1.85 or newer.
 
 ```console
-cargo add --dev archunit@0.0.3
+cargo add --dev archunit@0.0.4
 ```
 
 You can also add the dependency in `Cargo.toml`.
 
 ```toml
 [dev-dependencies]
-archunit = "0.0.3"
+archunit = "0.0.4"
 ```
 
 ### Add a test

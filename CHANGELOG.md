@@ -5,6 +5,10 @@ Versioning; the `0.0.x` line deliberately signals that the public API is still e
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-11-26
+
+- Automated release of changes through [04a6ad3](https://github.com/LukasNiessen/ArchUnitRust/commit/04a6ad37fd6dab2be6e4f530866daedfdc55f532).
+
 ## [0.0.3] - 2026-11-26
 
 - Automated release of changes through [94f89bb](https://github.com/LukasNiessen/ArchUnitRust/commit/94f89bb7d7e92d9463e70ed6735cdf43ef765254).
@@ -33,9 +37,11 @@ Versioning; the `0.0.x` line deliberately signals that the public API is still e
 - Conditional compilation branches are modeled as a conservative union.
 - Dependency nodes are source files rather than individual Rust items.
 
-[Unreleased]: https://github.com/LukasNiessen/ArchUnitRust/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/LukasNiessen/ArchUnitRust/compare/v0.0.4...HEAD
 [0.0.1]: https://github.com/LukasNiessen/ArchUnitRust/releases/tag/v0.0.1
 
 [0.0.2]: https://github.com/LukasNiessen/ArchUnitRust/releases/tag/v0.0.2
 
 [0.0.3]: https://github.com/LukasNiessen/ArchUnitRust/releases/tag/v0.0.3
+
+[0.0.4]: https://github.com/LukasNiessen/ArchUnitRust/releases/tag/v0.0.4
